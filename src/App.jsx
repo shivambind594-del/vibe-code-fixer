@@ -46,19 +46,45 @@ function highlight(code) {
 
   let out = escape(code)
 
-  // Comments
-  out = out.replace(/(\/\/[^\n]*)/g, '<span class="tok-comment">$1</span>')
-  // Strings
-  out = out.replace(/('[^']*'|"[^"]*"|`[^`]*`)/g, '<span class="tok-string">$1</span>')
-  // Keywords
+  // Safe ASCII placeholder — no weird unicode chars that get stripped
+  const tokens = []
+  const stash = (html) => {
+    tokens.push(html)
+    return `__TOK${tokens.length - 1}__`
+  }
+
+  // 1. Comments FIRST — before strings, so "//" inside strings isn't matched
+  out = out.replace(/(\/\/[^\n]*)/g, (m) =>
+    stash(`<span class="tok-comment">${m}</span>`)
+  )
+
+  // 2. Strings
+  out = out.replace(/('[^']*'|"[^"]*"|`[^`]*`)/g, (m) =>
+    stash(`<span class="tok-string">${m}</span>`)
+  )
+
+  // 3. Keywords
   out = out.replace(
     /\b(const|let|var|function|return|import|from|export|default|if|else|useState|useEffect|prev)\b/g,
-    '<span class="tok-keyword">$1</span>'
+    (m) => stash(`<span class="tok-keyword">${m}</span>`)
   )
-  // Numbers
-  out = out.replace(/\b(\d+)\b/g, '<span class="tok-number">$1</span>')
-  // Tags
-  out = out.replace(/(&lt;\/?[a-zA-Z][a-zA-Z0-9]*)/g, '<span class="tok-tag">$1</span>')
+
+  // 4. Numbers
+  out = out.replace(/\b(\d+)\b/g, (m) =>
+    stash(`<span class="tok-number">${m}</span>`)
+  )
+
+  // 5. JSX tags
+  out = out.replace(/(&lt;\/?[a-zA-Z][a-zA-Z0-9]*)/g, (m) =>
+    stash(`<span class="tok-tag">${m}</span>`)
+  )
+
+  // Restore tokens — loop until no placeholders remain
+  let prev = ''
+  while (prev !== out) {
+    prev = out
+    out = out.replace(/__TOK(\d+)__/g, (_, i) => tokens[Number(i)])
+  }
 
   return out
 }
@@ -78,7 +104,6 @@ export default function PortfolioPiece() {
 
   const handleIncrement = (key) => {
     if (!isFixed) {
-      // Broken behavior — no-op, but trigger a shake for feedback
       setShakeKey((k) => k + 1)
       return
     }
@@ -99,7 +124,6 @@ export default function PortfolioPiece() {
 
   return (
     <>
-      {/* Background layers */}
       <div className="aurora-bg" />
       <div className="grid-overlay" />
 
@@ -122,7 +146,6 @@ export default function PortfolioPiece() {
                   </p>
                 </div>
 
-                {/* Toggle */}
                 <div className="glass rounded-2xl p-5 flex flex-col gap-3 min-w-[280px]">
                   <div className="flex items-center justify-between gap-4">
                     <div>
@@ -159,7 +182,6 @@ export default function PortfolioPiece() {
                 </div>
               </div>
 
-              {/* Issue badges */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="glass glass-hover rounded-xl p-4 border-l-4 border-l-red-500">
                   <div className="inline-block bg-red-500/15 text-red-300 text-[10px] font-bold px-2 py-1 rounded tracking-wider">
@@ -217,7 +239,6 @@ export default function PortfolioPiece() {
                   </button>
                 </div>
 
-                {/* Metric cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
                   <MetricCard
                     label="Active Users"
@@ -251,7 +272,6 @@ export default function PortfolioPiece() {
                   />
                 </div>
 
-                {/* Status info */}
                 <div
                   className={`rounded-lg p-4 text-sm transition-all ${
                     isFixed
@@ -474,7 +494,6 @@ function MetricCard({
 // ─────────────────────────────────────────────
 function CodePanel({ variant, label, title, code, bullets }) {
   const isBroken = variant === 'broken'
-  const accent = isBroken ? 'red' : 'emerald'
 
   return (
     <div>
@@ -502,7 +521,6 @@ function CodePanel({ variant, label, title, code, bullets }) {
           isBroken ? 'border-red-500/20' : 'border-emerald-500/20'
         }`}
       >
-        {/* Terminal chrome */}
         <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-950/60 border-b border-slate-800">
           <span className="w-3 h-3 rounded-full bg-red-500/70" />
           <span className="w-3 h-3 rounded-full bg-yellow-500/70" />
@@ -512,9 +530,8 @@ function CodePanel({ variant, label, title, code, bullets }) {
           </span>
         </div>
 
-        {/* Code */}
-        <pre className="p-4 text-[11.5px] leading-relaxed text-slate-300 overflow-x-auto font-mono">
-          <code dangerouslySetInnerHTML={{ __html: highlight(code) }} />
+               <pre className="p-4 text-[11.5px] leading-relaxed text-slate-300 overflow-x-auto font-mono whitespace-pre">
+          <code>{code}</code>
         </pre>
       </div>
 
